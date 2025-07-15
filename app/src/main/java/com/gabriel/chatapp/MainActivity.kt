@@ -17,6 +17,7 @@ import com.gabriel.chatapp.ui.view.ChatScreen
 import com.gabriel.chatapp.ui.view.RoomListScreen
 import com.gabriel.chatapp.ui.view.notifyNewMessage
 import com.gabriel.chatapp.viewmodel.MsgViewModel
+import com.gabriel.chatapp.viewmodel.RoomViewModel
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 
@@ -33,7 +34,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MsgAppRoot(vm: MsgViewModel = viewModel()) {
+fun MsgAppRoot(
+    msgViewModel: MsgViewModel = viewModel(),
+    roomViewModel: RoomViewModel = viewModel()
+) {
     val context = LocalContext.current
     val firebaseAuth = remember { FirebaseAuth.getInstance() }
     val user by produceState(initialValue = firebaseAuth.currentUser) {
@@ -45,11 +49,9 @@ fun MsgAppRoot(vm: MsgViewModel = viewModel()) {
     val userId = user?.uid ?: "user_anonimo"
     val userName by remember(user) { mutableStateOf("Usuário-${userId.takeLast(4)}") }
 
-    // Esta variável agora controla qual tela é exibida
     var currentRoom by remember { mutableStateOf<String?>(null) }
     var lastNotifiedId by remember { mutableStateOf<String?>(null) }
 
-    // Lida com a permissão de notificação
     var hasNotificationPermission by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -75,23 +77,32 @@ fun MsgAppRoot(vm: MsgViewModel = viewModel()) {
         }
     }
 
-    // Se currentRoom não for nulo, conecta ao ViewModel
     LaunchedEffect(currentRoom) {
         currentRoom?.let {
-            vm.switchRoom(it)
+            msgViewModel.switchRoom(it)
         }
     }
 
-    // Lógica para decidir qual tela mostrar
+    val rooms by roomViewModel.rooms.collectAsState()
+
     if (currentRoom == null) {
-        RoomListScreen(onRoomSelected = { roomName ->
-            currentRoom = roomName
-        })
+        RoomListScreen(
+            rooms = rooms,
+            onRoomSelected = { roomName ->
+                currentRoom = roomName
+            },
+            onCreateRoom = { roomName ->
+                roomViewModel.createRoom(roomName)
+            },
+            onDeleteRoom = { roomId ->
+                roomViewModel.deleteRoom(roomId)
+            }
+        )
     } else {
         ChatScreen(
             userId = userId,
-            messages = vm.messages.collectAsState().value,
-            onSend = { text -> vm.sendMessage(userId, userName, text) },
+            messages = msgViewModel.messages.collectAsState().value,
+            onSend = { text -> msgViewModel.sendMessage(userId, userName, text) },
             currentRoom = currentRoom!!,
             lastNotifiedId = lastNotifiedId,
             onNotify = { msg ->
@@ -101,7 +112,7 @@ fun MsgAppRoot(vm: MsgViewModel = viewModel()) {
                 }
             },
             onLeaveRoom = {
-                currentRoom = null // Voltar para a lista de salas
+                currentRoom = null
             }
         )
     }

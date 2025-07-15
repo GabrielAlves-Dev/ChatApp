@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,7 @@ import com.gabriel.chatapp.model.Message
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     userId: String,
@@ -33,7 +36,7 @@ fun ChatScreen(
     currentRoom: String,
     lastNotifiedId: String?,
     onNotify: (Message) -> Unit,
-    onLeaveRoom: () -> Unit // Parâmetro novo para a função de sair
+    onLeaveRoom: () -> Unit
 ) {
     var input by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -45,82 +48,76 @@ fun ChatScreen(
         }
     }
 
-    Column(Modifier.fillMaxSize()) {
-        // Cabeçalho com o botão de sair
-        Surface(
-            tonalElevation = 2.dp,
-            shadowElevation = 4.dp,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.fillMaxWidth()
-        ) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(currentRoom) },
+                navigationIcon = {
+                    IconButton(onClick = onLeaveRoom) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Voltar"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+        }
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)) {
+
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background),
+                contentPadding = PaddingValues(12.dp),
+                reverseLayout = true
+            ) {
+                items(messages.reversed()) { msg ->
+                    MessageBubble(
+                        msg = msg,
+                        isOwn = msg.senderId == userId
+                    )
+                }
+            }
+
+            Divider()
+
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 14.dp, horizontal = 16.dp),
+                    .padding(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Sala: $currentRoom",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Digite sua mensagem...") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(22.dp)
                 )
-                // Botão novo
-                TextButton(onClick = onLeaveRoom) {
-                    Text("Sair da sala", color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(10.dp))
+                Button(
+                    onClick = {
+                        if (input.isNotBlank()) {
+                            onSend(input)
+                            input = ""
+                        }
+                    },
+                    shape = RoundedCornerShape(50),
+                    enabled = input.isNotBlank()
+                ) {
+                    Text("Enviar")
                 }
-            }
-        }
-
-        Divider()
-
-        // Mensagens
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background),
-            contentPadding = PaddingValues(12.dp),
-            reverseLayout = true // Mostra as mensagens mais recentes primeiro
-        ) {
-            items(messages.reversed()) { msg -> // Inverte a lista para o LazyColumn
-                MessageBubble(
-                    msg = msg,
-                    isOwn = msg.senderId == userId
-                )
-            }
-        }
-
-        Divider()
-
-        // Área de digitação
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedTextField(
-                value = input,
-                onValueChange = { input = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Digite sua mensagem...") },
-                singleLine = true,
-                shape = RoundedCornerShape(22.dp)
-            )
-            Spacer(Modifier.width(10.dp))
-            Button(
-                onClick = {
-                    if (input.isNotBlank()) {
-                        onSend(input)
-                        input = ""
-                    }
-                },
-                shape = RoundedCornerShape(50),
-                enabled = input.isNotBlank()
-            ) {
-                Text("Enviar")
             }
         }
     }
@@ -140,7 +137,6 @@ fun MessageBubble(msg: Message, isOwn: Boolean) {
         verticalAlignment = Alignment.Bottom
     ) {
         if (!isOwn) {
-            // Avatar para recebidas
             Box(
                 modifier = Modifier
                     .padding(end = 6.dp)
